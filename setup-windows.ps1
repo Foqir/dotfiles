@@ -36,6 +36,7 @@ $Apps = [ordered]@{
     'DEVCOM.JetBrainsMonoNerdFont' = 'шрифт JetBrainsMono Nerd Font'
     'Microsoft.PowerToys'          = 'PowerToys'
     'astral-sh.uv'                 = 'uv (Python-окружения)'
+    'astral-sh.ruff'               = 'Ruff (линтер Python)'
     'JohnMacFarlane.Pandoc'        = 'Pandoc (md -> docx)'
     'GitHub.cli'                   = 'GitHub CLI'
     'voidtools.Everything'         = 'Everything (поиск файлов)'
@@ -61,12 +62,6 @@ if (-not $SkipApps) {
         if ($LASTEXITCODE -eq 0) { Ok $Apps[$id] } else { Warn "$($Apps[$id]): winget вернул код $LASTEXITCODE" }
     }
     Refresh-Path
-
-    Step 'Ruff (линтер Python) через uv'
-    if (Get-Command uv -ErrorAction SilentlyContinue) {
-        if (Get-Command ruff -ErrorAction SilentlyContinue) { Ok 'ruff уже есть' }
-        else { uv tool install ruff; uv tool update-shell; Refresh-Path; Ok 'ruff' }
-    } else { Warn 'uv не найден, ruff пропущен' }
 }
 
 # winget ставит PowerShell 7 либо как MSI (Program Files), либо как MSIX (ярлык в WindowsApps)

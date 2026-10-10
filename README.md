@@ -12,7 +12,7 @@ installed and configured by two idempotent PowerShell scripts.
 | Terminal | Windows Terminal, PowerShell 7, Oh My Posh, JetBrainsMono Nerd Font, PSReadLine predictions, fzf, zoxide, fastfetch, a retro "Hacker (CRT)" profile |
 | Editor | VS Code: Tokyo Night, Material Icons, Error Lens, GitLens, Jupyter, Ruff |
 | Desktop | GlazeWM (tiling), YASB (top bar), Flow Launcher, PowerToys, dark theme with Tokyo Night accent, generated wallpaper |
-| Tooling | uv, Ruff, Pandoc, GitHub CLI, Everything, Claude Code CLI |
+| Tooling | uv, Ruff (winget), Pandoc, GitHub CLI, Everything, Claude Code CLI |
 
 ## Install
 
