@@ -43,6 +43,9 @@ bars:
       center:
       - clock
       right:
+      - vpn
+      - docker
+      - github
       - cpu
       - memory
       - systray
@@ -241,3 +244,59 @@ widgets:
         cancel:
         - ''
         - Отмена
+
+  # --- custom widgets: VPN tunnel, Docker simulations, GitHub notifications ---
+  vpn:
+    type: yasb.custom.CustomWidget
+    options:
+      label: '<span>{data[icon]}</span> {data[text]}'
+      label_alt: '<span>{data[icon]}</span> {data[tip]}'
+      class_name: vpn-widget
+      tooltip: true
+      tooltip_label: '{data[tip]}'
+      exec_options:
+        # scripts are copied next to this file by style-windows.ps1 (dotfiles/yasb/scripts)
+        run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\.config\yasb\scripts\vpn.ps1
+        run_interval: 15000
+        return_format: json
+        use_shell: true
+      callbacks:
+        on_left: toggle_label
+        on_middle: do_nothing
+        on_right: toggle_label
+  docker:
+    type: yasb.custom.CustomWidget
+    options:
+      label: '<span>{data[icon]}</span> {data[text]}'
+      label_alt: '<span>{data[icon]}</span> {data[names]}'
+      class_name: docker-widget
+      tooltip: true
+      tooltip_label: '{data[names]}'
+      exec_options:
+        # scripts are copied next to this file by style-windows.ps1 (dotfiles/yasb/scripts)
+        run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\.config\yasb\scripts\docker.ps1
+        run_interval: 10000
+        return_format: json
+        use_shell: true
+      callbacks:
+        on_left: toggle_label
+        on_middle: do_nothing
+        on_right: toggle_label
+  github:
+    type: yasb.custom.CustomWidget
+    options:
+      label: '<span>{data[icon]}</span> {data[text]}'
+      label_alt: '<span>{data[icon]}</span> {data[tip]}'
+      class_name: github-widget
+      tooltip: true
+      tooltip_label: '{data[tip]}'
+      exec_options:
+        # scripts are copied next to this file by style-windows.ps1 (dotfiles/yasb/scripts)
+        run_cmd: powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\.config\yasb\scripts\github.ps1
+        run_interval: 120000
+        return_format: json
+        use_shell: true
+      callbacks:
+        on_left: 'exec cmd /c start https://github.com/notifications'
+        on_middle: do_nothing
+        on_right: toggle_label

@@ -6,11 +6,13 @@
 
   Что делает: тёмная тема и прозрачность, акцент Tokyo Night на заголовках окон,
   панель задач — автоскрытие и без лишних кнопок, Проводник для разработчика,
-  сгенерированные обои, конфиги YASB и GlazeWM из этого репозитория, их автозапуск и запуск.
-  В конце перезапускается Проводник (открытые окна Проводника закроются).
+  сгенерированные обои, курсор Bibata Modern Ice, конфиги и виджеты YASB, конфиг GlazeWM,
+  их автозапуск и запуск. В конце перезапускается Проводник (открытые окна Проводника закроются).
 
   Ключи:
       -SkipWallpaper  не менять обои
+      -SkipCursor     не ставить курсор
+      -CursorSize     Regular (по умолчанию), Large или ExtraLarge
       -NoStart        не запускать YASB и GlazeWM сейчас (автозапуск всё равно включится)
       -Undo           вернуть Windows к состоянию ДО первого запуска скрипта
 
@@ -19,11 +21,14 @@
       registry.json   каждое значение реестра, которое скрипт меняет: было ли оно и каким было
       *.reg           полный экспорт затронутых веток (на всякий случай, для ручного восстановления)
       files\          исходные конфиги YASB и GlazeWM, если они были
-  Повторные запуски этот снимок НЕ перезаписывают, поэтому -Undo всегда возвращает исходный вид,
-  сколько бы раз скрипт ни запускался. Значения, которых до скрипта не было, при откате удаляются.
+  Повторные запуски уже записанное в снимке НЕ перезаписывают, поэтому -Undo всегда возвращает
+  исходный вид, сколько бы раз скрипт ни запускался. Если новая версия скрипта меняет значения,
+  которых в снимке ещё нет (например, курсор), они дописываются в снимок до изменения.
+  Значения, которых до скрипта не было, при откате удаляются.
   После отката снимок переименовывается в original-undone-<дата>, следующий запуск снимет новый.
 #>
-param([switch]$SkipWallpaper, [switch]$NoStart, [switch]$Undo)
+param([switch]$SkipWallpaper, [switch]$SkipCursor, [ValidateSet('Regular', 'Large', 'ExtraLarge')][string]$CursorSize = 'Regular',
+      [switch]$NoStart, [switch]$Undo)
 
 $ErrorActionPreference = 'Continue'
 $Here      = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -35,6 +40,22 @@ $Yasbc     = "$env:ProgramFiles\YASB\yasbc.exe"
 $YasbExe   = "$env:ProgramFiles\YASB\yasb.exe"
 $GlazeExe  = "$env:ProgramFiles\glzr.io\GlazeWM\glazewm.exe"
 $GlazeLnk  = Join-Path ([Environment]::GetFolderPath('Startup')) 'GlazeWM.lnk'
+
+# Курсор Bibata Modern Ice (GPL-3.0, github.com/ful1e5/Bibata_Cursor): закреплённый релиз + SHA256.
+# Ставится только для текущего пользователя: файлы в %LOCALAPPDATA%\Cursors, схема в HKCU, без прав админа.
+$CursorScheme = 'Bibata-Modern-Ice'
+$CursorUrl    = 'https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata-Modern-Ice-Windows.zip'
+$CursorSha256 = '0045E40324DA5B540B3BEE260F53D0792DF62BE9CDEF91655A024AE9F151BD04'
+$CursorDir    = "$env:LOCALAPPDATA\Cursors\$CursorScheme"
+$CursorDirReg = "%LOCALAPPDATA%\Cursors\$CursorScheme"          # REG_EXPAND_SZ, как у системных схем
+$CursorKey    = 'HKCU:\Control Panel\Cursors'
+# 17 стандартных ролей Windows в порядке строки схемы -> файл Bibata
+$CursorRoles  = [ordered]@{
+    Arrow = 'Pointer.cur'; Help = 'Help.cur'; AppStarting = 'Work.ani'; Wait = 'Busy.ani'
+    Crosshair = 'Cross.cur'; IBeam = 'Text.cur'; NWPen = 'Handwriting.cur'; No = 'Unavailable.cur'
+    SizeNS = 'Vert.cur'; SizeWE = 'Horz.cur'; SizeNWSE = 'Dgn1.cur'; SizeNESW = 'Dgn2.cur'
+    SizeAll = 'Move.cur'; UpArrow = 'Alternate.cur'; Hand = 'Link.cur'; Pin = 'Pin.cur'; Person = 'Person.cur'
+}
 
 function Step($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "    [ok] $m" -ForegroundColor Green }
@@ -52,6 +73,38 @@ function Set-Wallpaper([string]$path) {
     }
     [void][WinApi]::SystemParametersInfo(0x14, 0, $path, 3)   # SPI_SETDESKWALLPAPER, сохранить и разослать
 }
+function Update-Cursors {
+    if (-not ('WinApi' -as [type])) {
+        Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class WinApi { [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool SystemParametersInfo(int a, int b, string c, int d); }'
+    }
+    [void][WinApi]::SystemParametersInfo(0x57, 0, $null, 3)   # SPI_SETCURSORS: перечитать схему из реестра
+}
+function Install-CursorFiles {
+    # Скачивает закреплённый релиз, проверяет SHA256 и копирует нужный размер в $CursorDir.
+    $marker = Join-Path $CursorDir '.size'
+    if ((Test-Path "$CursorDir\Pointer.cur") -and (Test-Path $marker) -and ((Get-Content $marker) -eq $CursorSize)) { return $true }
+    $folder = @{ Regular = 'Regular'; Large = 'Large'; ExtraLarge = 'Extra-Large' }[$CursorSize]
+    $zip = Join-Path $env:TEMP "$CursorScheme-$Stamp.zip"
+    $tmp = Join-Path $env:TEMP "$CursorScheme-$Stamp"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -UseBasicParsing -Uri $CursorUrl -OutFile $zip -ErrorAction Stop
+        $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+        if ($hash -ne $CursorSha256) { Warn "SHA256 архива курсора не совпал ($hash), курсор не ставлю"; return $false }
+        Expand-Archive $zip $tmp -Force
+        $src = Join-Path $tmp "$CursorScheme-$folder-Windows"
+        New-Item -ItemType Directory -Force $CursorDir | Out-Null
+        Copy-Item "$src\*.cur", "$src\*.ani" $CursorDir -Force
+        Set-Content $marker $CursorSize
+        return (Test-Path "$CursorDir\Pointer.cur")
+    } catch {
+        Warn "курсор не скачался: $($_.Exception.Message)"
+        return $false
+    } finally {
+        Remove-Item $zip -Force -ErrorAction SilentlyContinue
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 function Saved-ConfigPath($dst) { Join-Path $Original ('files\' + ($dst.Substring($HOME.Length + 1) -replace '[\\/]', '__')) }
 
 # ============================================================
@@ -59,10 +112,12 @@ function Saved-ConfigPath($dst) { Join-Path $Original ('files\' + ($dst.Substrin
 # ============================================================
 function Get-RegValue($path, $name) {
     # @{ Existed; Kind; Value } — Kind в терминах RegistryValueKind (DWord, String, Binary, ...)
+    # '(default)' — так PowerShell называет безымянное значение ключа; в API реестра это ''.
+    $raw = if ($name -eq '(default)') { '' } else { $name }
     $key = Get-Item -Path $path -ErrorAction SilentlyContinue
-    if (-not $key -or $key.GetValueNames() -notcontains $name) { return @{ Existed = $false; Kind = $null; Value = $null } }
-    $kind  = $key.GetValueKind($name).ToString()
-    $value = $key.GetValue($name, $null, 'DoNotExpandEnvironmentNames')
+    if (-not $key -or $key.GetValueNames() -notcontains $raw) { return @{ Existed = $false; Kind = $null; Value = $null } }
+    $kind  = $key.GetValueKind($raw).ToString()
+    $value = $key.GetValue($raw, $null, 'DoNotExpandEnvironmentNames')
     if ($kind -eq 'Binary') { $value = [Convert]::ToBase64String([byte[]]$value) }
     return @{ Existed = $true; Kind = $kind; Value = $value }
 }
@@ -80,7 +135,8 @@ $RegKeys = @(
     'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced',
     'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3',
     'HKCU\Software\Microsoft\Windows\CurrentVersion\Search',
-    'HKCU\Control Panel\Desktop'
+    'HKCU\Control Panel\Desktop',
+    'HKCU\Control Panel\Cursors'
 )
 $ConfigCopies = @(
     @("$Here\yasb\config.yaml",    "$HOME\.config\yasb\config.yaml"),
@@ -110,6 +166,8 @@ if ($Undo) {
         }
     }
     Ok "восстановлено значений: $($items.Count)"
+    Update-Cursors
+    if (Test-Path $CursorDir) { Remove-Item $CursorDir -Recurse -Force -ErrorAction SilentlyContinue; Ok "курсор: исходная схема, $CursorDir удалён" }
 
     Step 'Конфиги YASB и GlazeWM'
     foreach ($c in $ConfigCopies) {
@@ -121,7 +179,10 @@ if ($Undo) {
     Step 'Автозапуск YASB и GlazeWM'
     if (Test-Path $Yasbc) { & $Yasbc disable-autostart | Out-Null; Ok 'YASB: автозапуск выключен' }
     if (Test-Path $GlazeLnk) { Remove-Item $GlazeLnk; Ok 'GlazeWM: ярлык автозапуска удалён' }
-    Get-Process glazewm, yasb -ErrorAction SilentlyContinue | Stop-Process -Force
+    Get-Process yasb -ErrorAction SilentlyContinue | Stop-Process -Force
+    if ((Get-Process glazewm -ErrorAction SilentlyContinue) -and (Test-Path $GlazeExe)) {
+        Start-Process $GlazeExe -ArgumentList 'command', 'wm-exit' -WindowStyle Hidden -Wait   # uiAccess: см. запуск ниже
+    }
 
     $wp = (Get-ItemProperty 'HKCU:\Control Panel\Desktop').WallPaper
     if ($wp) { Set-Wallpaper $wp }
@@ -182,28 +243,56 @@ if (-not $SkipWallpaper) {
     Plan $CD WallpaperStyle '10' 'String'                # заполнение
     Plan $CD TileWallpaper  '0'  'String'
 }
+# 5. курсор: файлы ставим до снимка и записи — если не скачался, схему не трогаем вовсе
+$cursorReady = $false
+if (-not $SkipCursor) {
+    Step "Курсор $CursorScheme ($CursorSize)"
+    $cursorReady = Install-CursorFiles
+    if ($cursorReady) {
+        $schemeParts = foreach ($role in $CursorRoles.Keys) {
+            Plan $CursorKey $role "$CursorDirReg\$($CursorRoles[$role])" 'ExpandString'
+            "$CursorDirReg\$($CursorRoles[$role])"
+        }
+        Plan $CursorKey '(default)'     $CursorScheme 'String'          # имя активной схемы
+        Plan $CursorKey 'Scheme Source' 1                                # 1 = пользовательская схема
+        Plan "$CursorKey\Schemes" $CursorScheme ($schemeParts -join ',') 'ExpandString'   # видна в «Свойствах мыши»
+        Ok "$CursorDir"
+    }
+}
 
 # ============================================================
-# 1. Снимок исходного состояния — только при первом запуске
+# 1. Снимок исходного состояния: создаётся при первом запуске,
+#    потом только дополняется значениями, которых в нём ещё нет
 # ============================================================
 Step 'Снимок исходного состояния'
-if (Test-Path $Snapshot) {
-    Ok "уже есть с первого запуска: $Original (не перезаписываю)"
-} else {
+$firstRun = -not (Test-Path $Snapshot)
+$items = @(); $known = @{}
+if (-not $firstRun) {
+    $items = Get-Content $Snapshot -Raw -Encoding UTF8 | ConvertFrom-Json   # PS 5.1: сначала в переменную
+    $items = @($items)
+    foreach ($it in $items) { $known["$($it.Path)|$($it.Name)"] = $true }
+}
+# все значения, которые скрипт трогает при текущих ключах, плюс сам путь к обоям
+$names = @($Changes | ForEach-Object { "$($_.Path)|$($_.Name)" }) +
+         "$CD|WallpaperStyle", "$CD|TileWallpaper", "$CD|WallPaper"
+$added = @(foreach ($n in ($names | Select-Object -Unique)) {
+    if ($known.ContainsKey($n)) { continue }
+    $path, $name = $n -split '\|', 2
+    $cur = Get-RegValue $path $name
+    [ordered]@{ Path = $path; Name = $name; Existed = $cur.Existed; Kind = $cur.Kind; Value = $cur.Value }
+})
+if ($firstRun) {
     New-Item -ItemType Directory -Force (Join-Path $Original 'files') | Out-Null
-    # все значения, которые скрипт может тронуть при любых ключах, плюс сам путь к обоям
-    $names = @($Changes | ForEach-Object { "$($_.Path)|$($_.Name)" }) +
-             "$CD|WallpaperStyle", "$CD|TileWallpaper", "$CD|WallPaper"
-    $items = @(foreach ($n in ($names | Select-Object -Unique)) {
-        $path, $name = $n -split '\|', 2
-        $cur = Get-RegValue $path $name
-        [ordered]@{ Path = $path; Name = $name; Existed = $cur.Existed; Kind = $cur.Kind; Value = $cur.Value }
-    })
-    ConvertTo-Json -InputObject $items -Depth 4 | Set-Content $Snapshot -Encoding UTF8
     foreach ($k in $RegKeys) { reg export $k (Join-Path $Original (($k -split '\\')[-1] + '.reg')) /y 2>$null | Out-Null }
     foreach ($c in $ConfigCopies) { $dst = $c[1]; if (Test-Path $dst) { Copy-Item $dst (Saved-ConfigPath $dst) } }
-    Ok "$Original (значений: $($items.Count))"
 }
+if ($added.Count) {
+    $all = @($items) + $added
+    ConvertTo-Json -InputObject $all -Depth 4 | Set-Content $Snapshot -Encoding UTF8
+}
+if ($firstRun) { Ok "$Original (значений: $($added.Count))" }
+elseif ($added.Count) { Ok "дописано в снимок новых значений: $($added.Count) (старые не тронуты)" }
+else { Ok "уже есть с первого запуска: $Original (не перезаписываю)" }
 
 # ============================================================
 # 2. Запись в реестр
@@ -211,6 +300,7 @@ if (Test-Path $Snapshot) {
 Step 'Тема, акцент Tokyo Night, панель задач, Проводник'
 foreach ($c in $Changes) { Set-RegValue $c.Path $c.Name $c.Value $c.Kind }
 if (-not $stuck) { Warn 'StuckRects3 не найден, автоскрытие включи вручную: Параметры -> Персонализация -> Панель задач' }
+if ($cursorReady) { Update-Cursors }
 Ok "записано значений: $($Changes.Count)"
 
 # ============================================================
@@ -241,6 +331,11 @@ foreach ($c in $ConfigCopies) {
     Copy-Item $src $dst -Force
     Ok $dst
 }
+# скрипты пользовательских виджетов YASB (VPN, Docker, GitHub)
+$ScriptsDst = "$HOME\.config\yasb\scripts"
+New-Item -ItemType Directory -Force $ScriptsDst | Out-Null
+Copy-Item "$Here\yasb\scripts\*.ps1" $ScriptsDst -Force
+Ok "$ScriptsDst ($(@(Get-ChildItem "$Here\yasb\scripts\*.ps1").Count) скрипта)"
 
 # ============================================================
 # 5. Автозапуск
@@ -263,9 +358,16 @@ Ok 'готово'
 
 if (-not $NoStart) {
     Step 'Запуск YASB и GlazeWM'
-    Get-Process glazewm, yasb -ErrorAction SilentlyContinue | Stop-Process -Force
-    if (Test-Path $YasbExe)  { Start-Process $YasbExe;  Start-Sleep -Seconds 3; Ok 'YASB' }
-    if (Test-Path $GlazeExe) { Start-Process $GlazeExe; Ok 'GlazeWM' }
+    Get-Process yasb -ErrorAction SilentlyContinue | Stop-Process -Force
+    if (Test-Path $YasbExe) { Start-Process $YasbExe; Start-Sleep -Seconds 3; Ok 'YASB' }
+    # GlazeWM работает с uiAccess: Stop-Process его не берёт ("Access is denied"), а запуск через
+    # оператор & падает ("requires elevation"). Поэтому только Start-Process и его собственный CLI.
+    if (Test-Path $GlazeExe) {
+        if (Get-Process glazewm -ErrorAction SilentlyContinue) {
+            Start-Process $GlazeExe -ArgumentList 'command', 'wm-reload-config' -WindowStyle Hidden -Wait
+            Ok 'GlazeWM уже запущен: конфиг перечитан'
+        } else { Start-Process $GlazeExe; Ok 'GlazeWM' }
+    }
 }
 
 # ============================================================

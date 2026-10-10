@@ -765,3 +765,10 @@
     color: var(--yasb-accent-fg);
     background-color: #3d59a1;
 }
+
+/* custom widgets: VPN, Docker, GitHub (yasb/scripts/*.ps1) */
+.vpn-widget .icon { color: #9ece6a; }
+.docker-widget .icon { color: #2ac3de; }
+.github-widget .icon { color: #c0caf5; }
+.vpn-widget:hover, .docker-widget:hover, .github-widget:hover { background-color: rgba(122, 162, 247, 0.12); }
+.vpn-widget .label, .docker-widget .label, .github-widget .label { color: #a9b1d6; }

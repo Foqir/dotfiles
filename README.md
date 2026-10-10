@@ -11,7 +11,7 @@ installed and configured by two idempotent PowerShell scripts.
 |---|---|
 | Terminal | Windows Terminal, PowerShell 7, Oh My Posh, JetBrainsMono Nerd Font, PSReadLine predictions, fzf, zoxide, fastfetch, a retro "Hacker (CRT)" profile |
 | Editor | VS Code: Tokyo Night, Material Icons, Error Lens, GitLens, Jupyter, Ruff |
-| Desktop | GlazeWM (tiling), YASB (top bar), Flow Launcher, PowerToys, dark theme with Tokyo Night accent, generated wallpaper |
+| Desktop | GlazeWM (tiling), YASB (top bar with VPN / Docker / GitHub widgets), Flow Launcher, PowerToys, dark theme with Tokyo Night accent, generated wallpaper, Bibata Modern Ice cursor |
 | Tooling | uv, Ruff (winget), Pandoc, GitHub CLI, Everything, Claude Code CLI |
 
 ## Install
@@ -34,6 +34,8 @@ so `-Undo` always returns Windows to how it looked before the first run; values 
 | `-SkipApps` | setup | configure only, no winget installs |
 | `-SkipVSCode` | setup | leave VS Code alone |
 | `-SkipWallpaper` | style | keep the current wallpaper |
+| `-SkipCursor` | style | keep the current cursor |
+| `-CursorSize Large` | style | cursor size: `Regular` (default), `Large`, `ExtraLarge` |
 | `-NoStart` | style | enable autostart but don't launch GlazeWM / YASB now |
 | `-Undo` | style | back to the state before the first run, disable autostart |
 
@@ -47,6 +49,22 @@ glazewm/config.yaml   -> ~\.glzr\glazewm\config.yaml   (based on GlazeWM v3.10.1
 yasb/config.yaml      -> ~\.config\yasb\config.yaml     (based on YASB v2.0.7 setup wizard)
 yasb/styles.css       -> ~\.config\yasb\styles.css
 ```
+
+## YASB widgets
+
+| Widget | Shows | Script |
+|---|---|---|
+| VPN | round trip through the system proxy (e.g. Happ); `VPN down` if the proxy is up but no traffic passes, `VPN off` if it is not running | `yasb/scripts/vpn.ps1`, every 15 s |
+| Docker | number of running containers, names on right click; `off` when Docker Desktop is stopped | `yasb/scripts/docker.ps1`, every 10 s |
+| GitHub | unread notifications via `gh` (its own login, no token in the config); left click opens github.com/notifications | `yasb/scripts/github.ps1`, every 2 min |
+
+`gh` and other Go tools ignore the Windows proxy settings, so the scripts read the system proxy and pass it on.
+Output is ASCII JSON (icons as `\u` escapes), so the console code page of Windows PowerShell 5.1 cannot garble it.
+
+## Cursor
+
+[Bibata Modern Ice](https://github.com/ful1e5/Bibata_Cursor) (GPL-3.0), release v2.0.7 pinned by SHA256, installed per user:
+files in `%LOCALAPPDATA%\Cursors\Bibata-Modern-Ice`, scheme in `HKCU\Control Panel\Cursors`, no admin rights. `-Undo` restores the previous scheme.
 
 ## GlazeWM keys
 
