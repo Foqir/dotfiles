@@ -73,6 +73,27 @@ function Set-Wallpaper([string]$path) {
     }
     [void][WinApi]::SystemParametersInfo(0x14, 0, $path, 3)   # SPI_SETDESKWALLPAPER, сохранить и разослать
 }
+function Set-TaskbarAutoHide([bool]$on) {
+    # Windows 11 25H2 не подхватывает автоскрытие из StuckRects3 при перезапуске Проводника,
+    # поэтому включаем его тем же вызовом, что и переключатель в «Параметрах» (ABM_SETSTATE).
+    if (-not ('AppBarApi' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public static class AppBarApi {
+    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int l, t, r, b; }
+    [StructLayout(LayoutKind.Sequential)] public struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint uCallbackMessage; public uint uEdge; public RECT rc; public IntPtr lParam; }
+    [DllImport("shell32.dll")] static extern UIntPtr SHAppBarMessage(uint msg, ref APPBARDATA data);
+    [DllImport("user32.dll")] public static extern IntPtr FindWindow(string cls, string title);
+    public static int GetState() { var d = new APPBARDATA(); d.cbSize = Marshal.SizeOf(d); return (int)SHAppBarMessage(4, ref d); }
+    public static void SetState(int s) { var d = new APPBARDATA(); d.cbSize = Marshal.SizeOf(d); d.hWnd = FindWindow("Shell_TrayWnd", null); d.lParam = (IntPtr)s; SHAppBarMessage(10, ref d); }
+}
+'@
+    }
+    for ($i = 0; $i -lt 20 -and [AppBarApi]::FindWindow('Shell_TrayWnd', $null) -eq [IntPtr]::Zero; $i++) { Start-Sleep -Milliseconds 500 }
+    [AppBarApi]::SetState($(if ($on) { 1 } else { 0 }))   # ABS_AUTOHIDE = 1
+    Start-Sleep -Milliseconds 500
+    return [bool]([AppBarApi]::GetState() -band 1) -eq $on
+}
 function Update-Cursors {
     if (-not ('WinApi' -as [type])) {
         Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class WinApi { [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool SystemParametersInfo(int a, int b, string c, int d); }'
@@ -187,6 +208,13 @@ if ($Undo) {
     $wp = (Get-ItemProperty 'HKCU:\Control Panel\Desktop').WallPaper
     if ($wp) { Set-Wallpaper $wp }
     Restart-Explorer
+    # автоскрытие панели задач — как было до скрипта (байт 8 исходного StuckRects3: 3 = скрывать)
+    $sr = $items | Where-Object { $_.Name -eq 'Settings' -and $_.Path -like '*StuckRects3' -and $_.Existed } | Select-Object -First 1
+    if ($sr) {
+        $wasHidden = ([Convert]::FromBase64String($sr.Value))[8] -eq 3
+        [void](Set-TaskbarAutoHide $wasHidden)
+        Ok "панель задач: автоскрытие $(if ($wasHidden) { 'включено' } else { 'выключено' }), как было"
+    }
 
     $done = Join-Path $BackupDir "original-undone-$Stamp"
     Rename-Item $Original $done
@@ -355,6 +383,10 @@ if (Test-Path $GlazeExe) {
 Step 'Перезапуск Проводника'
 Restart-Explorer
 Ok 'готово'
+if ($stuck) {
+    if (Set-TaskbarAutoHide $true) { Ok 'панель задач: автоскрытие включено' }
+    else { Warn 'автоскрытие панели задач не включилось: Параметры -> Персонализация -> Панель задач' }
+}
 
 if (-not $NoStart) {
     Step 'Запуск YASB и GlazeWM'
