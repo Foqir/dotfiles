@@ -249,8 +249,8 @@ widgets:
   vpn:
     type: yasb.custom.CustomWidget
     options:
-      label: '<span>{data[icon]}</span> {data[text]}'
-      label_alt: '<span>{data[icon]}</span> {data[tip]}'
+      label: '<span></span> {data[text]}'
+      label_alt: '<span></span> {data[tip]}'
       class_name: vpn-widget
       tooltip: true
       tooltip_label: '{data[tip]}'
@@ -267,8 +267,8 @@ widgets:
   docker:
     type: yasb.custom.CustomWidget
     options:
-      label: '<span>{data[icon]}</span> {data[text]}'
-      label_alt: '<span>{data[icon]}</span> {data[names]}'
+      label: '<span></span> {data[text]}'
+      label_alt: '<span></span> {data[names]}'
       class_name: docker-widget
       tooltip: true
       tooltip_label: '{data[names]}'
@@ -285,8 +285,8 @@ widgets:
   github:
     type: yasb.custom.CustomWidget
     options:
-      label: '<span>{data[icon]}</span> {data[text]}'
-      label_alt: '<span>{data[icon]}</span> {data[tip]}'
+      label: '<span></span> {data[text]}'
+      label_alt: '<span></span> {data[tip]}'
       class_name: github-widget
       tooltip: true
       tooltip_label: '{data[tip]}'
