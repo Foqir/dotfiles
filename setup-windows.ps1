@@ -163,7 +163,13 @@ New-Item -ItemType Directory -Force (Split-Path $WtSettings) | Out-Null
 Backup $WtSettings
 & $Pwsh -NoProfile -Command {
     param($file)
-    $s = if (Test-Path $file) { Get-Content $file -Raw | ConvertFrom-Json -AsHashtable } else { $null }
+    # Не смогли разобрать существующий settings.json (комментарии, ошибка) — не трогаем его вовсе,
+    # иначе он перезаписался бы почти пустым и пропали бы профили пользователя.
+    $s = $null
+    if (Test-Path $file) {
+        try { $s = Get-Content $file -Raw | ConvertFrom-Json -AsHashtable -ErrorAction Stop }
+        catch { "    [!]  не удалось разобрать $file ($($_.Exception.Message)), настройки терминала не изменены"; return }
+    }
     if (-not $s) { $s = [ordered]@{ '$schema' = 'https://aka.ms/terminal-profiles-schema' } }
     if (-not $s.profiles)               { $s.profiles = [ordered]@{ list = @() } }
     elseif ($s.profiles -is [array])    { $s.profiles = [ordered]@{ list = $s.profiles } }

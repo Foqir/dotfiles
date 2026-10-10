@@ -140,6 +140,10 @@ window_rules:
       - window_process: { equals: 'yasb' }
       - window_process: { equals: 'Flow.Launcher' }
 
+      # WSLg windows (Gazebo, RViz and other GUI apps from Docker/WSL) are RDP surfaces
+      # of msrdc.exe; tiling them makes them jitter and steal focus, so leave them alone.
+      - window_process: { equals: 'msrdc' }
+
       # Ignores picture-in-picture windows for browsers.
       - window_title: { regex: '[Pp]icture.in.[Pp]icture' }
         window_class: { regex: 'Chrome_WidgetWin_1|MozillaDialogClass' }

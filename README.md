@@ -25,7 +25,9 @@ powershell -ExecutionPolicy Bypass -File .\style-windows.ps1   # theme, taskbar,
 
 Run both as a normal user (winget asks for elevation where needed). Re-running is safe: installed apps are skipped,
 config blocks are replaced, and every edited file gets a `*.bak-<timestamp>` copy.
-`style-windows.ps1` exports the touched registry keys to `~\.dotfiles-backup\` first; `-Undo` restores them.
+On its first run `style-windows.ps1` snapshots every registry value it is about to change (and whether it existed),
+plus the original YASB/GlazeWM configs, into `~\.dotfiles-backup\original\`. Later runs never overwrite that snapshot,
+so `-Undo` always returns Windows to how it looked before the first run; values the script added are deleted.
 
 | Flag | Script | Effect |
 |---|---|---|
@@ -33,7 +35,7 @@ config blocks are replaced, and every edited file gets a `*.bak-<timestamp>` cop
 | `-SkipVSCode` | setup | leave VS Code alone |
 | `-SkipWallpaper` | style | keep the current wallpaper |
 | `-NoStart` | style | enable autostart but don't launch GlazeWM / YASB now |
-| `-Undo` | style | restore registry backup, disable autostart |
+| `-Undo` | style | back to the state before the first run, disable autostart |
 
 ## Layout
 
@@ -59,6 +61,10 @@ yasb/styles.css       -> ~\.config\yasb\styles.css
 | `Alt+C` | cycle focus tiling ↔ floating (moved from `Alt+Space`, which Flow Launcher uses) |
 | `Alt+Shift+P` / `Alt+Shift+E` | pause / exit GlazeWM |
 | `Alt+Shift+R` | reload config |
+
+WSLg windows (`msrdc.exe`: Gazebo, RViz and other Linux GUI apps from Docker/WSL) are ignored by GlazeWM.
+If Windows switches the input language with `Alt+Shift`, the many `Alt+Shift+<key>` bindings can collide with it;
+`style-windows.ps1` warns about this. Use `Win+Space` or change the language hotkey in Settings.
 
 Terminal: `` Win+` `` drop-down terminal, `Ctrl+R` fuzzy history, `Ctrl+T` fuzzy file, `z <dir>` jump.
 
