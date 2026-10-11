@@ -144,6 +144,10 @@ window_rules:
       # of msrdc.exe; tiling them makes them jitter and steal focus, so leave them alone.
       - window_process: { equals: 'msrdc' }
 
+      # Games: a tiling WM resizing a fullscreen game makes it drop out of fullscreen and
+      # flash black (seen with Valorant). Leave Riot / Valorant windows completely alone.
+      - window_process: { regex: '^(VALORANT.*|RiotClient.*|Riot Client)$' }
+
       # Ignores picture-in-picture windows for browsers.
       - window_title: { regex: '[Pp]icture.in.[Pp]icture' }
         window_class: { regex: 'Chrome_WidgetWin_1|MozillaDialogClass' }
