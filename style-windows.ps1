@@ -40,6 +40,7 @@ $Yasbc     = "$env:ProgramFiles\YASB\yasbc.exe"
 $YasbExe   = "$env:ProgramFiles\YASB\yasb.exe"
 $GlazeExe  = "$env:ProgramFiles\glzr.io\GlazeWM\glazewm.exe"
 $GlazeLnk  = Join-Path ([Environment]::GetFolderPath('Startup')) 'GlazeWM.lnk'
+$YasbLnk   = Join-Path ([Environment]::GetFolderPath('Startup')) 'YASB.lnk'   # yasbc enable-autostart молча ничего не создавал
 
 # Курсор Bibata Modern Ice (GPL-3.0, github.com/ful1e5/Bibata_Cursor): закреплённый релиз + SHA256.
 # Ставится только для текущего пользователя: файлы в %LOCALAPPDATA%\Cursors, схема в HKCU, без прав админа.
@@ -198,7 +199,8 @@ if ($Undo) {
     }
 
     Step 'Автозапуск YASB и GlazeWM'
-    if (Test-Path $Yasbc) { & $Yasbc disable-autostart | Out-Null; Ok 'YASB: автозапуск выключен' }
+    if (Test-Path $YasbLnk) { Remove-Item $YasbLnk; Ok 'YASB: ярлык автозапуска удалён' }
+    if (Test-Path $Yasbc) { & $Yasbc disable-autostart | Out-Null }
     if (Test-Path $GlazeLnk) { Remove-Item $GlazeLnk; Ok 'GlazeWM: ярлык автозапуска удалён' }
     Get-Process yasb -ErrorAction SilentlyContinue | Stop-Process -Force
     if ((Get-Process glazewm -ErrorAction SilentlyContinue) -and (Test-Path $GlazeExe)) {
@@ -369,7 +371,12 @@ Ok "$ScriptsDst ($(@(Get-ChildItem "$Here\yasb\scripts\*.ps1").Count) скрип
 # 5. Автозапуск
 # ============================================================
 Step 'Автозапуск'
-if (Test-Path $Yasbc) { & $Yasbc enable-autostart | Out-Null; Ok 'YASB' } else { Warn 'YASB не установлен (сначала setup-windows.ps1)' }
+if (Test-Path $YasbExe) {
+    $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut($YasbLnk)
+    $lnk.TargetPath = $YasbExe; $lnk.WorkingDirectory = Split-Path $YasbExe
+    $lnk.Save()
+    Ok "YASB ($YasbLnk)"
+} else { Warn 'YASB не установлен (сначала setup-windows.ps1)' }
 if (Test-Path $GlazeExe) {
     $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut($GlazeLnk)
     $lnk.TargetPath = $GlazeExe
