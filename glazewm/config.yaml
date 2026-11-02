@@ -100,15 +100,18 @@ window_effects:
 window_behavior:
   # New windows are created in this state whenever possible.
   # Allowed values: 'tiling', 'floating'.
-  initial_state: 'tiling'
+  # Floating: GlazeWM does not snap windows into tiles; screen sections come from PowerToys
+  # FancyZones (drag a window with Shift held). alt+t still tiles a single window on demand.
+  initial_state: 'floating'
 
   # Sets the default options for when a new window is created. This also
   # changes the defaults for when the state change commands, like
   # `set-floating`, are used without any flags.
   state_defaults:
     floating:
-      # Whether to center floating windows by default.
-      centered: true
+      # Whether to center floating windows by default. Off, so windows open where they were
+      # last time instead of jumping to the middle of the screen.
+      centered: false
 
       # Whether to show floating windows as always on top.
       shown_on_top: false

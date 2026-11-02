@@ -11,7 +11,7 @@ installed and configured by two idempotent PowerShell scripts.
 |---|---|
 | Terminal | Windows Terminal, PowerShell 7, Oh My Posh, JetBrainsMono Nerd Font, PSReadLine predictions, fzf, zoxide, fastfetch, a retro "Hacker (CRT)" profile |
 | Editor | VS Code: Tokyo Night, Material Icons, Error Lens, GitLens, Jupyter, Ruff |
-| Desktop | GlazeWM (tiling), YASB (top bar with VPN / Docker / GitHub widgets), Flow Launcher, PowerToys, dark theme with Tokyo Night accent, generated wallpaper, Bibata Modern Ice cursor |
+| Desktop | GlazeWM (workspaces, windows float by default), FancyZones for screen sections, YASB (top bar with VPN / Docker / GitHub widgets), Flow Launcher, PowerToys, dark theme with Tokyo Night accent, generated wallpaper, Bibata Modern Ice cursor |
 | Tooling | uv, Ruff (winget), Pandoc, GitHub CLI, Everything, Claude Code CLI |
 
 ## Install
